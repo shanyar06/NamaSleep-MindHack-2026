@@ -1,4 +1,4 @@
-import { AnalysisResponse, DoctorFeedback, PatientInput } from "@/types"
+import { AnalysisResponse, DoctorFeedback, PatientInput } from "../types"
 
 const API_BASE = "http://127.0.0.1:8000"
 
