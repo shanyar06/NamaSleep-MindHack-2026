@@ -9,6 +9,7 @@ class PatientInput(BaseModel):
     gender: Optional[str] = None
     age: int = Field(..., ge=1, le=120)
     occupation: Optional[str] = None
+    city: Optional[str] = "Ottawa"
 
     sleep_duration: float = Field(..., ge=0, le=24)
     sleep_quality: float = Field(..., ge=1, le=10)

@@ -1,0 +1,21 @@
+id,full_name,specialty,city,clinic_name,phone,email,accepting_new_patients
+1,Dr. Aisha Khan,Sleep Specialist,Ottawa,Ottawa Sleep Health Centre,613-555-0101,aisha.khan@demohealth.ca,1
+2,Dr. Marcus Chen,Sleep Specialist,Ottawa,Rideau Sleep Institute,613-555-0102,marcus.chen@demohealth.ca,1
+3,Dr. Priya Patel,Sleep Specialist,Ottawa,Capital Rest Clinic,613-555-0103,priya.patel@demohealth.ca,1
+4,Dr. Daniel Roy,Sleep Specialist,Ottawa,ByWard Sleep Medicine,613-555-0104,daniel.roy@demohealth.ca,1
+5,Dr. Emily Foster,Sleep Specialist,Ottawa,Gatineau-Ottawa Sleep Centre,613-555-0105,emily.foster@demohealth.ca,1
+6,Dr. Neha Sharma,Neurologist,Ottawa,Ottawa Neuro Specialists,613-555-0201,neha.sharma@demohealth.ca,1
+7,Dr. Jason Li,Neurologist,Ottawa,Capital Neurology Group,613-555-0202,jason.li@demohealth.ca,1
+8,Dr. Olivia Bennett,Neurologist,Ottawa,Riverside Neurology Clinic,613-555-0203,olivia.bennett@demohealth.ca,1
+9,Dr. Karim Haddad,Neurologist,Ottawa,Merivale Neurology Centre,613-555-0204,karim.haddad@demohealth.ca,1
+10,Dr. Sophia Nguyen,Neurologist,Ottawa,Ottawa Brain and Sleep Care,613-555-0205,sophia.nguyen@demohealth.ca,1
+11,Dr. Michael Tan,Pulmonologist,Ottawa,Ottawa Respiratory and Sleep Clinic,613-555-0301,michael.tan@demohealth.ca,1
+12,Dr. Sarah Ahmed,Pulmonologist,Ottawa,Capital Pulmonary Associates,613-555-0302,sarah.ahmed@demohealth.ca,1
+13,Dr. Lucas Tremblay,Pulmonologist,Ottawa,Rideau Lung Health Centre,613-555-0303,lucas.tremblay@demohealth.ca,1
+14,Dr. Hannah Brooks,Pulmonologist,Ottawa,Ottawa Chest and Sleep Institute,613-555-0304,hannah.brooks@demohealth.ca,1
+15,Dr. Ravi Menon,Pulmonologist,Ottawa,Westboro Pulmonary Clinic,613-555-0305,ravi.menon@demohealth.ca,1
+16,Dr. Laura Singh,Family Physician,Ottawa,Centretown Family Health,613-555-0401,laura.singh@demohealth.ca,1
+17,Dr. Matthew Green,Family Physician,Ottawa,Glebe Family Practice,613-555-0402,matthew.green@demohealth.ca,1
+18,Dr. Chloe Martin,Family Physician,Ottawa,Kanata Primary Care Clinic,613-555-0403,chloe.martin@demohealth.ca,1
+19,Dr. Omar Rizvi,Family Physician,Ottawa,Barrhaven Community Health,613-555-0404,omar.rizvi@demohealth.ca,1
+20,Dr. Isabelle Gagnon,Family Physician,Ottawa,Orleans Family Medical,613-555-0405,isabelle.gagnon@demohealth.ca,1
