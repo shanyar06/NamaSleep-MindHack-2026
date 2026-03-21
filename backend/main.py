@@ -65,7 +65,7 @@ def get_all_patients():
         "blood_pressure_category": p.blood_pressure_category,
         "heart_rate": p.heart_rate,
         "daily_steps": p.daily_steps,
-        "sleep_disorder": p.sleep_disorder,
+        "sleep_disorder": p.sleep_disorders,
     }
     for p in patients
     ]
