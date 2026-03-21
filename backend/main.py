@@ -15,7 +15,7 @@ from database import (
     feedback_store,
     get_dataset_summary,
     get_reference_cases,
-    weights,
+    #weights,
     thresholds,
     policy_state,
 )
@@ -155,43 +155,6 @@ def seed_demo_cases():
 def reset_demo():
     patients.clear()
     feedback_store.clear()
-
-    weights.clear()
-    weights.update({
-        "sleep_duration": 0.18,
-        "awakenings": 0.22,
-        "sleep_efficiency": 0.22,
-        "stress_level": 0.14,
-        "screen_time_before_bed": 0.08,
-        "caffeine_intake": 0.05,
-        "bedtime_consistency": 0.06,
-        "rem_irregularity": 0.05,
-    })
-
-    thresholds.clear()
-    thresholds.update({
-        "low_max": 34,
-        "medium_max": 64,
-    })
-
-    return {"status": "reset_complete"}
-
-@app.post("/reset-demo")
-def reset_demo():
-    patients.clear()
-    feedback_store.clear()
-
-    weights.clear()
-    weights.update({
-        "sleep_duration": 0.18,
-        "awakenings": 0.22,
-        "sleep_efficiency": 0.22,
-        "stress_level": 0.14,
-        "screen_time_before_bed": 0.08,
-        "caffeine_intake": 0.05,
-        "bedtime_consistency": 0.06,
-        "rem_irregularity": 0.05,
-    })
 
     thresholds.clear()
     thresholds.update({

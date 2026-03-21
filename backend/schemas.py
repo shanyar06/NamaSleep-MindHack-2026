@@ -4,15 +4,23 @@ from typing import List, Optional
 
 class PatientInput(BaseModel):
     name: str = "Anonymous"
+
+    person_id: Optional[int] = None
+    gender: Optional[str] = None
     age: int = Field(..., ge=1, le=120)
+    occupation: Optional[str] = None
+
     sleep_duration: float = Field(..., ge=0, le=24)
-    awakenings: int = Field(..., ge=0, le=20)
-    sleep_efficiency: float = Field(..., ge=0, le=100)
+    sleep_quality: float = Field(..., ge=1, le=10)
+    activity_level: int = Field(..., ge=0, le=100)
     stress_level: int = Field(..., ge=1, le=10)
-    screen_time_before_bed: int = Field(..., ge=0, le=600)
-    caffeine_intake: int = Field(..., ge=0, le=10)
-    bedtime_consistency: int = Field(..., ge=1, le=10)
-    rem_irregularity: float = Field(..., ge=0, le=1)
+
+    bmi_category: Optional[str] = None
+    blood_pressure: Optional[str] = None
+    heart_rate: Optional[int] = Field(default=None, ge=30, le=220)
+    daily_steps: int = Field(..., ge=0, le=100000)
+
+    sleep_disorder: Optional[str] = None
 
 
 class AnalysisResponse(BaseModel):
@@ -29,8 +37,8 @@ class AnalysisResponse(BaseModel):
 
 class DoctorFeedback(BaseModel):
     patient_id: str
-    doctor_decision: str  # agree | adjust
-    updated_recommendation_type: str  # lifestyle | monitor | escalate
+    doctor_decision: str
+    updated_recommendation_type: str
     notes: Optional[str] = ""
 
 
