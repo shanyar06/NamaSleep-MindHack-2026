@@ -1,4 +1,4 @@
-import PatientForm from "@/components/PatientForm"
+import PatientForm from "./PatientForm"
 
 export default function PatientPage() {
   return (

@@ -4,14 +4,26 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
 import pandas as pd
 
-# SQLite database file 
-DATABASE_URL = "sqlite:///./patients.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+LIFESTYLE_PATH = os.path.join(DATA_DIR, "Sleep_health_and_lifestyle_dataset.csv")
 
-# create engine 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
-# create session - used to talk to the database
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def _safe_read_csv(path: str) -> pd.DataFrame:
+    if os.path.exists(path):
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+def _normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = df.copy()
+    out.columns = [c.strip().lower().replace(" ", "_") for c in out.columns]
+    return out
+
+
+lifestyle_df = _normalize_column_names(_safe_read_csv(LIFESTYLE_PATH))
 
 Base = declarative_base()
 
@@ -74,12 +86,10 @@ def get_reference_cases(limit: int = 5) -> List[Dict[str, Any]]:
         "daily_steps",
         "sleep_disorder",
     ]
-
     available = [c for c in cols if c in lifestyle_df.columns]
     if not available:
         return []
 
     subset = lifestyle_df[available].head(limit).copy()
     subset = subset.fillna("None")
-
     return subset.to_dict(orient="records")
