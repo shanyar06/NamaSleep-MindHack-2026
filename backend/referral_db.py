@@ -55,3 +55,57 @@ def create_referral(patient_id: str, assessment_id: int, from_doctor_id: int, to
 
     conn.commit()
     conn.close()
+
+
+def assign_patient_to_doctor(doctor_id: int, patient_id: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO doctor_patients (doctor_id, patient_id)
+        VALUES (?, ?)
+        """,
+        (doctor_id, patient_id),
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_patient_ids_for_doctor(doctor_id: int) -> List[str]:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT patient_id
+        FROM doctor_patients
+        WHERE doctor_id = ?
+        """,
+        (doctor_id,),
+    )
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [row["patient_id"] for row in rows]
+
+
+def doctor_has_patient(doctor_id: int, patient_id: str) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT 1
+        FROM doctor_patients
+        WHERE doctor_id = ? AND patient_id = ?
+        LIMIT 1
+        """,
+        (doctor_id, patient_id),
+    )
+
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None

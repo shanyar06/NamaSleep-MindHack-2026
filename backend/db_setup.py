@@ -88,6 +88,17 @@ CREATE TABLE IF NOT EXISTS referrals (
 );
 """)
 
+# Doctor-Patient Assignments
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS doctor_patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doctor_id INTEGER NOT NULL,
+    patient_id TEXT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+);
+""")
+
 conn.commit()
 conn.close()
 
