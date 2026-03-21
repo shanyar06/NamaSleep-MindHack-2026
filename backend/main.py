@@ -3,10 +3,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from schemas import PatientInput, AnalysisResponse, DoctorFeedback, ComparisonResponse
-from database import patients, feedback_store
+from database import SessionLocal, engine, patients, feedback_store
+import models
 from risk_engine import score_patient
 from rl_engine import apply_feedback
 from llm_service import generate_patient_summary, generate_doctor_summary
+
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sleep LLM Backend")
 
@@ -38,14 +41,73 @@ def build_analysis(patient_id: str, payload: PatientInput) -> AnalysisResponse:
 def root():
     return {"status": "ok", "service": "sleep-llm-backend"}
 
+@app.get("/favicon.ico HTTP/1.1")
+def get_favicon():
+    return {"status": "ok"}
 
-@app.post("/analyze-patient", response_model=AnalysisResponse)
-def analyze_patient(data: PatientInput):
-    patient_id = str(uuid.uuid4())
-    analysis = build_analysis(patient_id, data)
+# get all patients 
+@app.get("/patients")
+def get_all_patients():
+    session = SessionLocal()
+    patients = session.query(models.Patient).all()
+    session.close()
+    return [
+    {
+        "id": p.id,
+        "gender": p.gender,
+        "age": p.age,
+        "occupation": p.occupation,
+        "sleep_duration": p.sleep_duration,
+        "quality_of_sleep": p.quality_of_sleep,
+        "physical_activity": p.physical_activity,
+        "stress_level": p.stress_level,
+        "BMI_category": p.BMI_category,
+        "blood_pressure_category": p.blood_pressure_category,
+        "heart_rate": p.heart_rate,
+        "daily_steps": p.daily_steps,
+        "sleep_disorder": p.sleep_disorder,
+    }
+    for p in patients
+    ]
 
-    patients[patient_id] = {
-        "input": data.model_dump(),
+# get single patient by id
+@app.get("/patients/{patient_id}")
+def get_patient_by_id(patient_id: int):
+    session = SessionLocal()
+    patient = session.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    session.close()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    return patient
+
+@app.post("/analyze-patient/{patient_id}", response_model=AnalysisResponse)
+def analyze_patient(patient_id: int):
+    session = SessionLocal()
+    patient = session.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    session.close()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    payload = PatientInput(
+        gender=patient.gender,
+        age=patient.age,
+        occupation=patient.occupation,
+        sleep_duration=patient.sleep_duration,
+        quality_of_sleep=patient.quality_of_sleep,
+        physical_activity=patient.physical_activity,
+        stress_level=patient.stress_level,
+        BMI_category=patient.BMI_category,
+        blood_pressure_category=patient.blood_pressure_category,
+        heart_rate=patient.heart_rate,
+        daily_steps=patient.daily_steps,
+        sleep_disorder=patient.sleep_disorder,
+    )
+    
+    analysis = build_analysis(str(patient.id), payload)
+
+    patients[str(patient.id)] = {
+        "input": payload.model_dump(),
         "before": analysis.model_dump(),
         "after": None,
         "flagged": analysis.doctor_flag,

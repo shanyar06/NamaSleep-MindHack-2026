@@ -1,87 +1,129 @@
-from typing import Dict, List, Tuple
+from typing import List, Tuple, Optional
 from schemas import PatientInput
-from database import weights
+from database import thresholds, policy_state
 
 
 def _normalize_sleep_duration(hours: float) -> float:
-    if hours >= 7:
+    if hours >= 7.0:
         return 0.0
-    if hours <= 3:
+    if hours <= 4.0:
         return 1.0
-    return (7 - hours) / 4
+    return (7.0 - hours) / 3.0
 
 
-def _normalize_awakenings(count: int) -> float:
-    return min(count / 6, 1.0)
-
-
-def _normalize_sleep_efficiency(eff: float) -> float:
-    if eff >= 85:
-        return 0.0
-    if eff <= 50:
-        return 1.0
-    return (85 - eff) / 35
+def _normalize_sleep_quality(q: float) -> float:
+    return 1.0 - ((q - 1.0) / 9.0)
 
 
 def _normalize_stress(level: int) -> float:
-    return (level - 1) / 9
+    return (level - 1.0) / 9.0
 
 
-def _normalize_screen_time(minutes: int) -> float:
-    return min(minutes / 180, 1.0)
+def _normalize_activity(level: int) -> float:
+    return max(0.0, min(1.0, 1.0 - (level / 100.0)))
 
 
-def _normalize_caffeine(count: int) -> float:
-    return min(count / 5, 1.0)
+def _normalize_steps(steps: int) -> float:
+    if steps >= 8000:
+        return 0.0
+    return max(0.0, min(1.0, (8000 - steps) / 8000.0))
 
 
-def _normalize_bedtime_consistency(score: int) -> float:
-    # high consistency should reduce risk
-    return 1 - ((score - 1) / 9)
+def _normalize_heart_rate(hr: Optional[int]) -> float:
+    if hr is None:
+        return 0.0
+    if hr <= 60:
+        return 0.0
+    if hr >= 95:
+        return 1.0
+    return (hr - 60) / 35.0
 
 
-def _normalize_rem_irregularity(score: float) -> float:
-    return max(0.0, min(score, 1.0))
+def _normalize_bmi_category(bmi: Optional[str]) -> float:
+    if not bmi:
+        return 0.0
+    bmi = bmi.lower().strip()
+    if "normal" in bmi:
+        return 0.0
+    if "overweight" in bmi:
+        return 0.5
+    if "obese" in bmi:
+        return 1.0
+    return 0.2
+
+
+def extract_factor_labels(data: PatientInput) -> List[str]:
+    factors: List[str] = []
+
+    if data.sleep_duration <= 6:
+        factors.append("short sleep duration")
+    if data.sleep_quality <= 6:
+        factors.append("low sleep quality")
+    if data.stress_level >= 7:
+        factors.append("high stress")
+    if data.activity_level < 30:
+        factors.append("low physical activity")
+    if data.daily_steps < 5000:
+        factors.append("low daily movement")
+    if data.heart_rate is not None and data.heart_rate >= 85:
+        factors.append("elevated resting heart rate")
+    if data.bmi_category and "overweight" in data.bmi_category.lower():
+        factors.append("overweight BMI category")
+    if data.bmi_category and "obese" in data.bmi_category.lower():
+        factors.append("obesity-related health context")
+
+    return factors
+
+
+def _clinical_feedback_bonus(data: PatientInput) -> int:
+    """
+    Add a visible policy bonus when clinician feedback has taught the system
+    to escalate earlier for concerning medium-risk patterns.
+    """
+    escalation_bias = policy_state["escalation_bias"]
+    if escalation_bias <= 0:
+        return 0
+
+    bonus = 0
+
+    # Sleep-centered escalation
+    if data.sleep_quality <= 6 and data.stress_level >= 7:
+        bonus += escalation_bias
+
+    if data.sleep_duration <= 6 and data.daily_steps < 5000:
+        bonus += 4
+
+    # Broader moderate-risk escalation for this dataset
+    if data.stress_level >= 7 and data.daily_steps < 5000:
+        bonus += escalation_bias
+
+    if data.bmi_category and "overweight" in data.bmi_category.lower() and data.stress_level >= 7:
+        bonus += 3
+
+    return bonus
 
 
 def score_patient(data: PatientInput) -> Tuple[int, str, str, bool, List[str]]:
-    normalized: Dict[str, float] = {
-        "sleep_duration": _normalize_sleep_duration(data.sleep_duration),
-        "awakenings": _normalize_awakenings(data.awakenings),
-        "sleep_efficiency": _normalize_sleep_efficiency(data.sleep_efficiency),
-        "stress_level": _normalize_stress(data.stress_level),
-        "screen_time_before_bed": _normalize_screen_time(data.screen_time_before_bed),
-        "caffeine_intake": _normalize_caffeine(data.caffeine_intake),
-        "bedtime_consistency": _normalize_bedtime_consistency(data.bedtime_consistency),
-        "rem_irregularity": _normalize_rem_irregularity(data.rem_irregularity),
-    }
+    score = 0.0
+    score += _normalize_sleep_duration(data.sleep_duration) * 28
+    score += _normalize_sleep_quality(data.sleep_quality) * 28
+    score += _normalize_stress(data.stress_level) * 18
+    score += _normalize_activity(data.activity_level) * 10
+    score += _normalize_steps(data.daily_steps) * 8
+    score += _normalize_heart_rate(data.heart_rate) * 4
+    score += _normalize_bmi_category(data.bmi_category) * 4
 
-    raw_score = sum(normalized[k] * weights[k] for k in normalized)
-    risk_score = round(raw_score * 100)
+    risk_score = round(score)
+    risk_score += _clinical_feedback_bonus(data)
+    risk_score = max(0, min(risk_score, 100))
 
-    factors: List[str] = []
-    if data.sleep_duration < 6:
-        factors.append("short sleep duration")
-    if data.awakenings >= 3:
-        factors.append("frequent awakenings")
-    if data.sleep_efficiency < 75:
-        factors.append("poor sleep efficiency")
-    if data.stress_level >= 7:
-        factors.append("high stress")
-    if data.screen_time_before_bed >= 90:
-        factors.append("high screen time before bed")
-    if data.caffeine_intake >= 3:
-        factors.append("high caffeine intake")
-    if data.bedtime_consistency <= 4:
-        factors.append("irregular bedtime pattern")
-    if data.rem_irregularity >= 0.6:
-        factors.append("REM irregularity")
+    factors = extract_factor_labels(data)
 
-    if risk_score < 35:
+    if risk_score <= thresholds["low_max"]:
         risk_level = "low"
         recommendation_type = "lifestyle"
         doctor_flag = False
-    elif risk_score < 65:
+    elif risk_score <= thresholds["medium_max"]:
         risk_level = "medium"
         recommendation_type = "monitor"
         doctor_flag = True
