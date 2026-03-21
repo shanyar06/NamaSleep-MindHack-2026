@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from schemas import PatientInput, AnalysisResponse, DoctorFeedback, ComparisonResponse
 from database import (
+    engine,
     SessionLocal,
     patients,
     feedback_store,
