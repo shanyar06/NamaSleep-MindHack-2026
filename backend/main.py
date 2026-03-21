@@ -3,12 +3,20 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from schemas import PatientInput, AnalysisResponse, DoctorFeedback, ComparisonResponse
-from database import patients, feedback_store, get_dataset_summary, get_reference_cases
+#from database import patients, feedback_store, get_dataset_summary, get_reference_cases
 from risk_engine import score_patient
 from rl_engine import apply_feedback
 from llm_service import generate_patient_summary, generate_doctor_summary
 from seed_cases import SEEDED_CASES
-#from database import patients, feedback_store, get_dataset_summary, get_reference_cases, weights, thresholds
+from pydantic import BaseModel
+from referral_logic import get_specialty_priority
+from referral_db import (
+    #get_latest_assessment_for_patient,
+    #get_patient_profile,
+    #find_doctors_by_city_and_specialties,
+    find_ranked_doctors_by_city_and_specialties,
+    create_referral
+)
 
 from database import (
     patients,
@@ -30,6 +38,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class ReferralRequest(BaseModel):
+    from_doctor_id: int
+    to_doctor_id: int
+    reason: str
 
 def build_analysis(patient_id: str, payload: PatientInput) -> AnalysisResponse:
     risk_score, risk_level, recommendation_type, doctor_flag, factors = score_patient(payload)
@@ -168,3 +180,48 @@ def reset_demo():
     })
 
     return {"status": "reset_complete"}
+
+@app.get("/patient/{patient_id}/recommended-doctors")
+def recommended_doctors(patient_id: str):
+    patient = patients.get(patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    analysis = patient["after"] if patient["after"] else patient["before"]
+    risk_level = analysis["risk_level"]
+
+    city = "Ottawa"
+
+    specialties = get_specialty_priority(risk_level)
+    doctors = find_ranked_doctors_by_city_and_specialties(city, specialties, limit=5)
+
+    return {
+        "patient_id": patient_id,
+        "city": city,
+        "risk_level": risk_level,
+        "recommended_specialties": specialties,
+        "doctors": doctors,
+    }
+
+@app.post("/patient/{patient_id}/refer-doctor")
+def refer_doctor(patient_id: str, payload: ReferralRequest):
+    patient = patients.get(patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    analysis = patient["after"] if patient["after"] else patient["before"]
+
+    create_referral(
+        patient_id=patient_id,
+        assessment_id=0,
+        from_doctor_id=payload.from_doctor_id,
+        to_doctor_id=payload.to_doctor_id,
+        reason=payload.reason,
+    )
+
+    return {
+        "status": "referral_created",
+        "patient_id": patient_id,
+        "risk_level": analysis["risk_level"],
+        "to_doctor_id": payload.to_doctor_id,
+    }
