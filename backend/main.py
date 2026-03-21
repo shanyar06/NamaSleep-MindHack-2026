@@ -20,8 +20,10 @@ from referral_logic import get_specialty_priority
 from referral_db import (
     find_ranked_doctors_by_city_and_specialties,
     create_referral,
+    assign_patient_to_doctor,
+    get_patient_ids_for_doctor,
+    doctor_has_patient,
 )
-
 app = FastAPI(title="Sleep LLM Backend")
 
 app.add_middleware(
@@ -38,6 +40,9 @@ class ReferralRequest(BaseModel):
     to_doctor_id: int
     reason: str
 
+class AssignmentRequest(BaseModel):
+    doctor_id: int
+    patient_id: str
 
 def build_analysis(patient_id: str, payload: PatientInput) -> AnalysisResponse:
     risk_score, risk_level, recommendation_type, doctor_flag, factors = score_patient(payload)
@@ -426,26 +431,147 @@ def doctor_patient_detail(patient_id: str):
         "needs_attention": _needs_attention(patient),
     }
 
+@app.get("/doctor/{doctor_id}/dashboard")
+def doctor_dashboard(doctor_id: int):
+    assigned_patient_ids = set(get_patient_ids_for_doctor(doctor_id))
+
+    dashboard_rows = []
+
+    for patient_id, record in patients.items():
+        if patient_id not in assigned_patient_ids:
+            continue
+
+        latest = _latest_analysis(record)
+        patient_input = record["input"]
+
+        dashboard_rows.append(
+            {
+                "patient_id": patient_id,
+                "name": patient_input.get("name", "Unknown"),
+                "age": patient_input.get("age"),
+                "gender": patient_input.get("gender"),
+                "occupation": patient_input.get("occupation"),
+                "city": patient_input.get("city", "Ottawa"),
+                "risk_level": latest["risk_level"],
+                "risk_score": latest["risk_score"],
+                "recommendation_type": latest["recommendation_type"],
+                "doctor_flag": latest["doctor_flag"],
+                "needs_attention": _needs_attention(record),
+                "factors": latest["factors"][:4],
+            }
+        )
+
+    dashboard_rows.sort(
+        key=lambda x: (
+            not x["needs_attention"],
+            {"high": 0, "medium": 1, "low": 2}.get(x["risk_level"], 3),
+            -x["risk_score"],
+        )
+    )
+
+    return {
+        "doctor_id": doctor_id,
+        "total_patients": len(dashboard_rows),
+        "flagged_patients": sum(1 for row in dashboard_rows if row["needs_attention"]),
+        "patients": dashboard_rows,
+    }
+
+@app.get("/doctor/{doctor_id}/patient/{patient_id}")
+def doctor_patient_detail(doctor_id: int, patient_id: str):
+    if not doctor_has_patient(doctor_id, patient_id):
+        raise HTTPException(status_code=403, detail="This patient is not assigned to this doctor")
+
+    patient = patients.get(patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    latest = _latest_analysis(patient)
+
+    latest_feedback = None
+    matching_feedback = [f for f in feedback_store if f["patient_id"] == patient_id]
+    if matching_feedback:
+        latest_feedback = matching_feedback[-1]
+
+    comparison = None
+    if patient.get("after"):
+        comparison = {
+            "before": patient["before"],
+            "after": patient["after"],
+        }
+
+    return {
+        "doctor_id": doctor_id,
+        "patient_id": patient_id,
+        "profile": patient["input"],
+        "latest": latest,
+        "history": patient.get("history", []),
+        "latest_feedback": latest_feedback,
+        "comparison": comparison,
+        "needs_attention": _needs_attention(patient),
+    }
+
+@app.post("/doctor/{doctor_id}/patient/{patient_id}/feedback")
+def doctor_patient_feedback(doctor_id: int, patient_id: str, feedback: DoctorFeedback):
+    if not doctor_has_patient(doctor_id, patient_id):
+        raise HTTPException(status_code=403, detail="This patient is not assigned to this doctor")
+
+    patient = patients.get(patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    feedback_store.append(feedback.model_dump())
+    apply_feedback(feedback.doctor_decision, feedback.updated_recommendation_type)
+
+    original_input = PatientInput(**patient["input"])
+    updated = build_analysis(patient_id, original_input)
+
+    patient["after"] = updated.model_dump()
+
+    patient.setdefault("history", []).append(
+        {
+            "label": "After clinician feedback",
+            "sleep_duration": original_input.sleep_duration,
+            "sleep_quality": original_input.sleep_quality,
+            "activity_level": original_input.activity_level,
+            "stress_level": original_input.stress_level,
+            "blood_pressure": original_input.blood_pressure,
+            "heart_rate": original_input.heart_rate,
+            "daily_steps": original_input.daily_steps,
+            "risk_score": updated.risk_score,
+            "risk_level": updated.risk_level,
+        }
+    )
+
+    return {
+        "status": "feedback_applied",
+        "doctor_id": doctor_id,
+        "patient_id": patient_id,
+        "updated_recommendation": updated.recommendation_type,
+        "updated_score": updated.risk_score,
+    }
 
 # -----------------------------
 # REFERRAL ENDPOINTS
 # -----------------------------
 
-@app.get("/patient/{patient_id}/recommended-doctors")
-def recommended_doctors(patient_id: str):
+@app.get("/doctor/{doctor_id}/patient/{patient_id}/recommended-doctors")
+def recommended_doctors(doctor_id: int, patient_id: str):
+    if not doctor_has_patient(doctor_id, patient_id):
+        raise HTTPException(status_code=403, detail="This patient is not assigned to this doctor")
+
     patient = patients.get(patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
     analysis = _latest_analysis(patient)
     risk_level = analysis["risk_level"]
-
     city = patient["input"].get("city", "Ottawa")
 
     specialties = get_specialty_priority(risk_level)
     doctors = find_ranked_doctors_by_city_and_specialties(city, specialties, limit=5)
 
     return {
+        "doctor_id": doctor_id,
         "patient_id": patient_id,
         "city": city,
         "risk_level": risk_level,
@@ -454,8 +580,11 @@ def recommended_doctors(patient_id: str):
     }
 
 
-@app.post("/patient/{patient_id}/refer-doctor")
-def refer_doctor(patient_id: str, payload: ReferralRequest):
+@app.post("/doctor/{doctor_id}/patient/{patient_id}/refer-doctor")
+def refer_doctor(doctor_id: int, patient_id: str, payload: ReferralRequest):
+    if not doctor_has_patient(doctor_id, patient_id):
+        raise HTTPException(status_code=403, detail="This patient is not assigned to this doctor")
+
     patient = patients.get(patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
@@ -465,14 +594,28 @@ def refer_doctor(patient_id: str, payload: ReferralRequest):
     create_referral(
         patient_id=patient_id,
         assessment_id=0,
-        from_doctor_id=payload.from_doctor_id,
+        from_doctor_id=doctor_id,
         to_doctor_id=payload.to_doctor_id,
         reason=payload.reason,
     )
 
     return {
         "status": "referral_created",
+        "doctor_id": doctor_id,
         "patient_id": patient_id,
         "risk_level": latest["risk_level"],
         "to_doctor_id": payload.to_doctor_id,
+    }
+
+@app.post("/doctor/assign-patient")
+def assign_patient(payload: AssignmentRequest):
+    if payload.patient_id not in patients:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    assign_patient_to_doctor(payload.doctor_id, payload.patient_id)
+
+    return {
+        "status": "assigned",
+        "doctor_id": payload.doctor_id,
+        "patient_id": payload.patient_id,
     }
