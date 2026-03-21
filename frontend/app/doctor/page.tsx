@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getFlaggedPatients, submitDoctorFeedback, getComparison } from "@/lib/api"
+import { getFlaggedPatients, submitDoctorFeedback, getComparison } from "../../lib/api"
 
 export default function DoctorPage() {
   const [patients, setPatients] = useState<any[]>([])
