@@ -11,8 +11,8 @@ class PatientInput(BaseModel):
     occupation: Optional[str] = None
 
     sleep_duration: float = Field(..., ge=0, le=24)
-    sleep_quality: float = Field(..., ge=1, le=10)
-    activity_level: int = Field(..., ge=0, le=100)
+    quality_of_sleep: float = Field(..., ge=1, le=10)
+    physical_activity: int = Field(..., ge=0, le=100)
     stress_level: int = Field(..., ge=1, le=10)
 
     bmi_category: Optional[str] = None
@@ -20,7 +20,7 @@ class PatientInput(BaseModel):
     heart_rate: Optional[int] = Field(default=None, ge=30, le=220)
     daily_steps: int = Field(..., ge=0, le=100000)
 
-    sleep_disorder: Optional[str] = None
+    sleep_disorders: Optional[str] = None
 
 
 class AnalysisResponse(BaseModel):

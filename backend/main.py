@@ -32,7 +32,7 @@ def build_analysis(patient_id: str, payload: PatientInput) -> AnalysisResponse:
         recommendation_type=recommendation_type,
         doctor_flag=doctor_flag,
         factors=factors,
-        patient_summary=generate_patient_summary(risk_level, factors),
+        patient_summary=generate_patient_summary(risk_level, factors, recommendation_type),
         doctor_summary=generate_doctor_summary(risk_level, factors, recommendation_type),
     )
 
@@ -101,7 +101,7 @@ def analyze_patient(patient_id: int):
         blood_pressure_category=patient.blood_pressure_category,
         heart_rate=patient.heart_rate,
         daily_steps=patient.daily_steps,
-        sleep_disorder=patient.sleep_disorder,
+        sleep_disorder=patient.sleep_disorders,
     )
     
     analysis = build_analysis(str(patient.id), payload)

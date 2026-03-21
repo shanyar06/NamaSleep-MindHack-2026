@@ -57,11 +57,11 @@ def extract_factor_labels(data: PatientInput) -> List[str]:
 
     if data.sleep_duration <= 6:
         factors.append("short sleep duration")
-    if data.sleep_quality <= 6:
+    if data.quality_of_sleep <= 6:
         factors.append("low sleep quality")
     if data.stress_level >= 7:
         factors.append("high stress")
-    if data.activity_level < 30:
+    if data.physical_activity < 30:
         factors.append("low physical activity")
     if data.daily_steps < 5000:
         factors.append("low daily movement")
@@ -87,7 +87,7 @@ def _clinical_feedback_bonus(data: PatientInput) -> int:
     bonus = 0
 
     # Sleep-centered escalation
-    if data.sleep_quality <= 6 and data.stress_level >= 7:
+    if data.quality_of_sleep <= 6 and data.stress_level >= 7:
         bonus += escalation_bias
 
     if data.sleep_duration <= 6 and data.daily_steps < 5000:
@@ -106,9 +106,9 @@ def _clinical_feedback_bonus(data: PatientInput) -> int:
 def score_patient(data: PatientInput) -> Tuple[int, str, str, bool, List[str]]:
     score = 0.0
     score += _normalize_sleep_duration(data.sleep_duration) * 28
-    score += _normalize_sleep_quality(data.sleep_quality) * 28
+    score += _normalize_sleep_quality(data.quality_of_sleep) * 28
     score += _normalize_stress(data.stress_level) * 18
-    score += _normalize_activity(data.activity_level) * 10
+    score += _normalize_activity(data.physical_activity) * 10
     score += _normalize_steps(data.daily_steps) * 8
     score += _normalize_heart_rate(data.heart_rate) * 4
     score += _normalize_bmi_category(data.bmi_category) * 4
