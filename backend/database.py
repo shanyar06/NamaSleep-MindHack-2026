@@ -1,4 +1,15 @@
 from typing import Dict, Any, List
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+# SQLite database file 
+DATABASE_URL = "sqlite:///./patients.db"
+
+# create engine 
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
+# create session - used to talk to the database
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 patients: Dict[str, Dict[str, Any]] = {}
 feedback_store: List[Dict[str, Any]] = []
