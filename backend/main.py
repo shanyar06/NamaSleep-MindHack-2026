@@ -45,17 +45,35 @@ def build_analysis(patient_id: str, payload: PatientInput) -> AnalysisResponse:
     reference_cases = get_reference_cases(limit=3)
     matched_cases = [f"Reference case {i+1}" for i in range(len(reference_cases))]
 
-    return AnalysisResponse(
+    patient_summary = generate_patient_summary(risk_level, factors, recommendation_type)
+    doctor_summary = generate_doctor_summary(risk_level, factors, recommendation_type)
+
+    analysis = AnalysisResponse(
         patient_id=patient_id,
         risk_level=risk_level,
         risk_score=risk_score,
         recommendation_type=recommendation_type,
         doctor_flag=doctor_flag,
         factors=factors,
-        patient_summary=generate_patient_summary(risk_level, factors, recommendation_type),
-        doctor_summary=generate_doctor_summary(risk_level, factors, recommendation_type),
+        patient_summary=patient_summary,
+        doctor_summary=doctor_summary,
         matched_reference_cases=matched_cases,
     )
+    
+    # Save analysis to CSV
+    save_patient_analysis(
+        patient_id=patient_id,
+        risk_level=risk_level,
+        risk_score=risk_score,
+        recommendation_type=recommendation_type,
+        doctor_flag=doctor_flag,
+        factors=factors,
+        patient_summary=patient_summary,
+        doctor_summary=doctor_summary,
+        matched_reference_cases=matched_cases
+    )
+    
+    return analysis
 
 
 def _latest_analysis(patient_record: dict):
@@ -249,6 +267,91 @@ def reset_demo():
     return {"status": "reset_complete"}
 
 
+@app.post("/add-patient")
+def add_patient(data: PatientInput):
+    """Add a new patient to the CSV database"""
+    try:
+        patient_data = {
+            "id": str(uuid.uuid4()),
+            "gender": data.gender,
+            "age": data.age,
+            "occupation": data.occupation,
+            "sleep_duration": data.sleep_duration,
+            "quality_of_sleep": data.quality_of_sleep,
+            "physical_activity": data.physical_activity,
+            "stress_level": data.stress_level,
+            "bmi_category": data.bmi_category,
+            "blood_pressure_category": data.blood_pressure_category,
+            "heart_rate": data.heart_rate,
+            "daily_steps": data.daily_steps,
+            "created_at": str(pd.Timestamp.now()),
+        }
+        
+        if add_new_patient(patient_data):
+            return {
+                "status": "success",
+                "patient_id": patient_data["id"],
+                "message": "Patient added to database"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to add patient")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/patients")
+def get_patients():
+    """Retrieve all patients from the CSV database"""
+    patients_list = get_all_patients()
+    return {
+        "status": "success",
+        "count": len(patients_list),
+        "patients": patients_list
+    }
+
+
+@app.post("/patient/{patient_id}/new-entry")
+def add_patient_entry(patient_id: str, data: PatientInput):
+    """Create a new entry for an existing patient with updated data"""
+    try:
+        new_data = {
+            "gender": data.gender,
+            "age": data.age,
+            "occupation": data.occupation,
+            "sleep_duration": data.sleep_duration,
+            "quality_of_sleep": data.quality_of_sleep,
+            "physical_activity": data.physical_activity,
+            "stress_level": data.stress_level,
+            "bmi_category": data.bmi_category,
+            "blood_pressure_category": data.blood_pressure_category,
+            "heart_rate": data.heart_rate,
+            "daily_steps": data.daily_steps,
+            "sleep_disorders": "",
+            "created_at": str(pd.Timestamp.now()),
+        }
+        
+        if create_new_entry_from_patient(patient_id, new_data):
+            return {
+                "status": "success",
+                "patient_id": patient_id,
+                "message": "New entry created for existing patient"
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Patient not found")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/patient/{patient_id}/details")
+def get_patient_details(patient_id: str):
+    """Retrieve a specific patient's details from CSV"""
+    patient = get_patient_by_id(patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return {
+        "status": "success",
+        "patient": patient
+    }
 # -----------------------------
 # DOCTOR DASHBOARD ENDPOINTS
 # -----------------------------
