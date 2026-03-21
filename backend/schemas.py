@@ -4,7 +4,7 @@ from typing import List, Optional
 
 class PatientInput(BaseModel):
     name: str = "Anonymous"
-    age: int = 24
+    age: int = Field(..., ge=1, le=120)
     sleep_duration: float = Field(..., ge=0, le=24)
     awakenings: int = Field(..., ge=0, le=20)
     sleep_efficiency: float = Field(..., ge=0, le=100)
@@ -24,12 +24,13 @@ class AnalysisResponse(BaseModel):
     factors: List[str]
     patient_summary: str
     doctor_summary: str
+    matched_reference_cases: List[str] = []
 
 
 class DoctorFeedback(BaseModel):
     patient_id: str
     doctor_decision: str  # agree | adjust
-    updated_recommendation_type: str
+    updated_recommendation_type: str  # lifestyle | monitor | escalate
     notes: Optional[str] = ""
 
 

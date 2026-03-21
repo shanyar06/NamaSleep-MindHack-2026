@@ -1,4 +1,9 @@
 fastapi
 uvicorn
 pydantic
+python-dotenv
+openai
+pandas
+numpy
 python-multipart
+scikit-learn
