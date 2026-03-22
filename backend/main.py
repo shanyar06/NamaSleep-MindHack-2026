@@ -32,6 +32,7 @@ from referral_db import (
     assign_patient_to_doctor,
     get_patient_ids_for_doctor,
     doctor_has_patient,
+    get_all_doctors,
 )
 
 
@@ -649,4 +650,12 @@ def assign_patient(payload: AssignmentRequest):
         "status": "assigned",
         "doctor_id": payload.doctor_id,
         "patient_id": payload.patient_id,
+    }
+
+@app.get("/doctors")
+def list_doctors():
+    doctors = get_all_doctors()
+    return {
+        "count": len(doctors),
+        "doctors": doctors,
     }

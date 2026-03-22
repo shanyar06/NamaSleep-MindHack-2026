@@ -109,3 +109,21 @@ def doctor_has_patient(doctor_id: int, patient_id: str) -> bool:
     row = cursor.fetchone()
     conn.close()
     return row is not None
+
+def get_all_doctors():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT id, full_name, specialty, city, clinic_name, phone, email, accepting_new_patients
+        FROM doctors
+        WHERE accepting_new_patients = 1
+        ORDER BY full_name
+        """
+    )
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(r) for r in rows]
