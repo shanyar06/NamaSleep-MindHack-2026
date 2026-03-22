@@ -1,8 +1,11 @@
+import datetime
 import uuid
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from models import Patient
+from database import SessionLocal, engine, Base
 
 from schemas import PatientInput, AnalysisResponse, DoctorFeedback, ComparisonResponse
 from database import (
@@ -30,6 +33,9 @@ from referral_db import (
     get_patient_ids_for_doctor,
     doctor_has_patient,
 )
+
+
+Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Sleep LLM Backend")
 
 app.add_middleware(
@@ -39,6 +45,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def to_dict(obj):
+    return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
 
 
 class ReferralRequest(BaseModel):
@@ -136,8 +145,8 @@ def analyze_patient(data: PatientInput):
             {
                 "label": "Current",
                 "sleep_duration": data.sleep_duration,
-                "sleep_quality": data.sleep_quality,
-                "activity_level": data.activity_level,
+                "quality_of_sleep": data.quality_of_sleep,
+                "physical_activity": data.physical_activity,
                 "stress_level": data.stress_level,
                 "blood_pressure": data.blood_pressure,
                 "heart_rate": data.heart_rate,
@@ -188,8 +197,8 @@ def doctor_feedback(feedback: DoctorFeedback):
         {
             "label": "After clinician feedback",
             "sleep_duration": original_input.sleep_duration,
-            "sleep_quality": original_input.sleep_quality,
-            "activity_level": original_input.activity_level,
+            "sleep_quality": original_input.quality_of_sleep,
+            "physical_activity": original_input.physical_activity,
             "stress_level": original_input.stress_level,
             "blood_pressure": original_input.blood_pressure,
             "heart_rate": original_input.heart_rate,
@@ -277,92 +286,107 @@ def reset_demo():
 
     return {"status": "reset_complete"}
 
+# -----------------------------
+# CREATE PATIENT
+# -----------------------------
+@app.post("/patients")
+def create_patient(data: PatientInput):
+    session = SessionLocal()
 
-@app.post("/add-patient")
-def add_patient(data: PatientInput):
-    """Add a new patient to the CSV database"""
     try:
-        patient_data = {
-            "id": str(uuid.uuid4()),
-            "gender": data.gender,
-            "age": data.age,
-            "occupation": data.occupation,
-            "sleep_duration": data.sleep_duration,
-            "quality_of_sleep": data.quality_of_sleep,
-            "physical_activity": data.physical_activity,
-            "stress_level": data.stress_level,
-            "bmi_category": data.bmi_category,
-            "blood_pressure_category": data.blood_pressure_category,
-            "heart_rate": data.heart_rate,
-            "daily_steps": data.daily_steps,
-            "created_at": str(pd.Timestamp.now()),
+        patient = Patient(**data.dict())
+        session.add(patient)
+        session.commit()
+        session.refresh(patient)
+
+        return {
+            "status": "success",
+            "patient": to_dict(patient)
         }
-        
-        if add_new_patient(patient_data):
-            return {
-                "status": "success",
-                "patient_id": patient_data["id"],
-                "message": "Patient added to database"
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Failed to add patient")
+
     except Exception as e:
+        session.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
+    finally:
+        session.close()
 
+
+# -----------------------------
+# GET ALL PATIENTS
+# -----------------------------
 @app.get("/patients")
 def get_patients():
-    """Retrieve all patients from the CSV database"""
-    patients_list = get_all_patients()
-    return {
-        "status": "success",
-        "count": len(patients_list),
-        "patients": patients_list
-    }
+    session = SessionLocal()
 
-
-@app.post("/patient/{patient_id}/new-entry")
-def add_patient_entry(patient_id: str, data: PatientInput):
-    """Create a new entry for an existing patient with updated data"""
     try:
-        new_data = {
-            "gender": data.gender,
-            "age": data.age,
-            "occupation": data.occupation,
-            "sleep_duration": data.sleep_duration,
-            "quality_of_sleep": data.quality_of_sleep,
-            "physical_activity": data.physical_activity,
-            "stress_level": data.stress_level,
-            "bmi_category": data.bmi_category,
-            "blood_pressure_category": data.blood_pressure_category,
-            "heart_rate": data.heart_rate,
-            "daily_steps": data.daily_steps,
-            "sleep_disorders": "",
-            "created_at": str(pd.Timestamp.now()),
+        patients = session.query(Patient).all()
+
+        return {
+            "status": "success",
+            "count": len(patients),
+            "patients": [to_dict(p) for p in patients]
         }
-        
-        if create_new_entry_from_patient(patient_id, new_data):
-            return {
-                "status": "success",
-                "patient_id": patient_id,
-                "message": "New entry created for existing patient"
-            }
-        else:
+
+    finally:
+        session.close()
+
+
+# -----------------------------
+# GET PATIENT DETAILS
+# -----------------------------
+@app.get("/patient/{patient_id}/details")
+def get_patient_details(patient_id: int):
+    session = SessionLocal()
+
+    try:
+        patient = session.query(Patient).filter(Patient.id == patient_id).first()
+
+        if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
+
+        return {
+            "status": "success",
+            "patient": to_dict(patient)
+        }
+
+    finally:
+        session.close()
+
+
+# -----------------------------
+# ADD NEW ENTRY (UPDATE)
+# -----------------------------
+@app.post("/patient/{patient_id}/new-entry")
+def add_patient_entry(patient_id: int, data: PatientInput):
+    session = SessionLocal()
+
+    try:
+        patient = session.query(Patient).filter(Patient.id == patient_id).first()
+
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        # update existing patient
+        for key, value in data.dict().items():
+            setattr(patient, key, value)
+
+        patient.created_at = datetime.utcnow()
+
+        session.commit()
+
+        return {
+            "status": "success",
+            "message": "Patient updated successfully",
+            "patient": to_dict(patient)
+        }
+
     except Exception as e:
+        session.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
-
-@app.get("/patient/{patient_id}/details")
-def get_patient_details(patient_id: str):
-    """Retrieve a specific patient's details from CSV"""
-    patient = get_patient_by_id(patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    return {
-        "status": "success",
-        "patient": patient
-    }
+    finally:
+        session.close()
 # -----------------------------
 # DOCTOR DASHBOARD ENDPOINTS
 # -----------------------------
@@ -537,12 +561,13 @@ def doctor_patient_feedback(doctor_id: int, patient_id: str, feedback: DoctorFee
         {
             "label": "After clinician feedback",
             "sleep_duration": original_input.sleep_duration,
-            "sleep_quality": original_input.sleep_quality,
-            "activity_level": original_input.activity_level,
+            "quality_of_life": original_input.quality_of_sleep,
+            "physical_activity": original_input.physical_activity,
             "stress_level": original_input.stress_level,
-            "blood_pressure": original_input.blood_pressure,
+            "blood_pressure_category": original_input.blood_pressure_category,
             "heart_rate": original_input.heart_rate,
             "daily_steps": original_input.daily_steps,
+            "sleep_disorders": original_input.sleep_disorders,
             "risk_score": updated.risk_score,
             "risk_level": updated.risk_level,
         }

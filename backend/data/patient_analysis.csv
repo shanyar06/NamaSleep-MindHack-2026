@@ -1,0 +1,1 @@
+patient_id,risk_level,risk_score,recommendation_type,doctor_flag,factors,patient_summary,doctor_summary,matched_reference_cases,created_at

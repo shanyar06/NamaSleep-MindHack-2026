@@ -1,12 +1,25 @@
 import os
 from typing import Dict, Any, List
 import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 LIFESTYLE_PATH = os.path.join(DATA_DIR, "Sleep_health_and_lifestyle_dataset.csv")
 PATIENTS_PATH = os.path.join(DATA_DIR, "patients.csv")
 ANALYSIS_PATH = os.path.join(DATA_DIR, "patient_analysis.csv")
+
+DATABASE_URL = "sqlite:///./app.db"
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+Base = declarative_base()
 
 def _safe_read_csv(path: str) -> pd.DataFrame:
     if os.path.exists(path):
