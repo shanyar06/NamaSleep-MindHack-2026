@@ -177,7 +177,7 @@ def save_patient_analysis(
     doctor_summary: str,
     matched_reference_cases: List[str]
 ) -> bool:
-    """Save or update patient analysis results to CSV"""
+    """Save patient analysis results to CSV as a new entry"""
     try:
         df = pd.read_csv(ANALYSIS_PATH) if os.path.exists(ANALYSIS_PATH) else pd.DataFrame()
         
@@ -194,14 +194,9 @@ def save_patient_analysis(
             "created_at": str(pd.Timestamp.now())
         }
         
-        # Check if patient analysis already exists
-        if not df.empty and patient_id in df["patient_id"].values:
-            # Update existing patient analysis
-            df.loc[df["patient_id"] == patient_id] = pd.Series(analysis_data)
-        else:
-            # Create new patient analysis
-            new_analysis = pd.DataFrame([analysis_data])
-            df = pd.concat([df, new_analysis], ignore_index=True)
+        # Always create new patient analysis entry
+        new_analysis = pd.DataFrame([analysis_data])
+        df = pd.concat([df, new_analysis], ignore_index=True)
         
         df.to_csv(ANALYSIS_PATH, index=False)
         return True
