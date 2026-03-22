@@ -4,7 +4,8 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from models import Patient
+from sqlalchemy import func
+from models import Patient, PatientAnalysis
 from database import SessionLocal, engine, Base
 
 from schemas import PatientInput, AnalysisResponse, DoctorFeedback, ComparisonResponse
@@ -35,7 +36,6 @@ from referral_db import (
     get_all_doctors,
 )
 
-
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Sleep LLM Backend")
 
@@ -58,7 +58,7 @@ class ReferralRequest(BaseModel):
 
 class AssignmentRequest(BaseModel):
     doctor_id: int
-    patient_id: str
+    patient_id: int
 
 def build_analysis(patient_id: str, payload: PatientInput) -> AnalysisResponse:
     risk_score, risk_level, recommendation_type, doctor_flag, factors = score_patient(payload)
@@ -157,7 +157,76 @@ def analyze_patient(data: PatientInput):
             }
         ],
     }
+
     return analysis
+
+from sqlalchemy.orm import Session
+
+@app.post("/analyze-all-patients")
+def analyze_all_patients():
+    session = SessionLocal()
+
+    results = []
+
+    try:
+        all_patients = session.query(Patient).all()
+
+        if not all_patients:
+            raise HTTPException(status_code=404, detail="No patients found")
+
+        for p in all_patients:
+            # build payload from DB patient
+            payload = PatientInput(
+                gender=p.gender,
+                age=p.age,
+                occupation=p.occupation,
+                sleep_duration=p.sleep_duration,
+                quality_of_sleep=p.quality_of_sleep,
+                physical_activity=p.physical_activity,
+                stress_level=p.stress_level,
+                bmi_category=p.bmi_category,
+                blood_pressure_category=p.blood_pressure_category,
+                heart_rate=p.heart_rate,
+                daily_steps=p.daily_steps,
+                sleep_disorders=p.sleep_disorders,
+            )
+
+            # run analysis using REAL patient id
+            analysis = build_analysis(str(p.id), payload)
+
+            analysis_record = PatientAnalysis(
+                patient_id=p.id,
+                risk_level=analysis.risk_level,
+                risk_score=analysis.risk_score,
+                recommendation_type=analysis.recommendation_type,
+                doctor_flag=analysis.doctor_flag,
+                factors=",".join(analysis.factors),
+                patient_summary=analysis.patient_summary,
+                doctor_summary=analysis.doctor_summary,
+            )
+
+            session.add(analysis_record)
+
+            results.append({
+                "patient_id": p.id,
+                "risk_level": analysis.risk_level,
+                "flagged": analysis.doctor_flag
+            })
+
+        session.commit()
+
+        return {
+            "status": "success",
+            "total_processed": len(results),
+            "results": results
+        }
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        session.close()
 
 
 @app.get("/patient/{patient_id}")
@@ -170,13 +239,44 @@ def get_patient(patient_id: str):
 
 @app.get("/patients/flagged")
 def get_flagged_patients():
-    flagged = []
-    for pid, data in patients.items():
-        if data.get("flagged"):
-            record = data["before"].copy()
-            record["patient_id"] = pid
-            flagged.append(record)
-    return flagged
+    session = SessionLocal()
+
+    try:
+        # get latest analysis per patient
+        subquery = (
+            session.query(
+                PatientAnalysis.patient_id,
+                func.max(PatientAnalysis.created_at).label("latest_time")
+            )
+            .group_by(PatientAnalysis.patient_id)
+            .subquery()
+        )
+
+        latest_analyses = (
+            session.query(PatientAnalysis)
+            .join(
+                subquery,
+                (PatientAnalysis.patient_id == subquery.c.patient_id) &
+                (PatientAnalysis.created_at == subquery.c.latest_time)
+            )
+            .filter(PatientAnalysis.doctor_flag == True)
+            .all()
+        )
+
+        return [
+            {
+                "patient_id": a.patient_id,
+                "risk_level": a.risk_level,
+                "risk_score": a.risk_score,
+                "recommendation_type": a.recommendation_type,
+                "doctor_flag": a.doctor_flag,
+                "factors": a.factors.split(",") if a.factors else []
+            }
+            for a in latest_analyses
+        ]
+
+    finally:
+        session.close()
 
 
 @app.post("/doctor-feedback")
@@ -641,8 +741,6 @@ def refer_doctor(doctor_id: int, patient_id: str, payload: ReferralRequest):
 
 @app.post("/doctor/assign-patient")
 def assign_patient(payload: AssignmentRequest):
-    if payload.patient_id not in patients:
-        raise HTTPException(status_code=404, detail="Patient not found")
 
     assign_patient_to_doctor(payload.doctor_id, payload.patient_id)
 

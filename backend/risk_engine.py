@@ -87,7 +87,7 @@ def _clinical_feedback_bonus(data: PatientInput) -> int:
     bonus = 0
 
     # Sleep-centered escalation
-    if data.sleep_quality <= 6 and data.stress_level >= 7:
+    if data.quality_of_sleep<= 6 and data.stress_level >= 7:
         bonus += escalation_bias
 
     if data.sleep_duration <= 6 and data.daily_steps < 5000:
