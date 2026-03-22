@@ -92,3 +92,34 @@ class DoctorFeedback(Base):
     notes = Column(Text)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class DoctorPatient(Base):
+    __tablename__ = "doctor_patients"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(Integer, nullable=False)
+    patient_id = Column(Integer, nullable=False)
+
+
+class Doctor(Base):
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String)
+    specialty = Column(String)
+    city = Column(String)
+    clinic_name = Column(String)
+    phone = Column(String)
+    email = Column(String)
+    accepting_new_patients = Column(Boolean)
+
+
+class Referral(Base):
+    __tablename__ = "referrals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer)
+    assessment_id = Column(Integer)
+    from_doctor_id = Column(Integer)
+    to_doctor_id = Column(Integer)
+    reason = Column(Text)
