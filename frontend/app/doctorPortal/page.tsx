@@ -964,7 +964,7 @@ function TopBar({ doctor, onLogout }: { doctor: StaticDoctor; onLogout: () => vo
   return (
     <div style={{ background: C.nav, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 58, position: "sticky", top: 0, zIndex: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Sleep Triage</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>NamaSleep</span>
         <span style={{ fontSize: 11, color: "#334155", background: "#1e293b", borderRadius: 5, padding: "2px 8px" }}>Doctor Portal</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

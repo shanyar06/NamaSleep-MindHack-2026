@@ -48,11 +48,11 @@ export default function HomePage() {
           </div>
 
           <h1 style={{ fontSize: 24, fontWeight: 700, color: C.text }}>
-            Sleep LLM
+            NamaSleep
           </h1>
 
           <p style={{ fontSize: 13, color: C.sub, marginTop: 6 }}>
-            Human-in-the-loop insomnia risk triage powered by wearable-informed sleep signals
+            Your personalized sleeping companion 
           </p>
         </div>
 
