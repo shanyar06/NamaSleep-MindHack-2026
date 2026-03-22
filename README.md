@@ -11,6 +11,7 @@ A medical decision support system that leverages personalized patient data to as
 2. Navigate to the Frontend folder
 3. run npm install
 4. run npm run dev
+5. start on the main page by navigating to localhost:3000
 
 **BackEnd**
 1. Open the project on the cmd
