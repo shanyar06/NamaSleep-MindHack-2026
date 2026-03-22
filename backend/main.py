@@ -1,4 +1,5 @@
 import uuid
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -11,6 +12,11 @@ from database import (
     get_reference_cases,
     thresholds,
     policy_state,
+    save_patient_analysis,
+    add_new_patient,
+    get_all_patients,
+    get_patient_by_id,
+    create_new_entry_from_patient,
 )
 from risk_engine import score_patient
 from rl_engine import apply_feedback
