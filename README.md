@@ -6,14 +6,14 @@ A medical decision support system that leverages personalized patient data to as
 * Our presentation slides: https://docs.google.com/presentation/d/1aT-MszOCE6KtlVAj9TnOIrd4eE-Pkw17lCFdBtafRUg/edit?usp=sharing 
 
 # How to run the program
-**FrontEnd**
+**frontend/**
 1. Open the project on the cmd
 2. Navigate to the Frontend folder
 3. run npm install
 4. run npm run dev
 5. start on the main page by navigating to localhost:3000
 
-**BackEnd**
+**backend/**
 1. Open the project on the cmd
 2. Navigate to the Backend folder
 3. run pip install -r requirements.txt
