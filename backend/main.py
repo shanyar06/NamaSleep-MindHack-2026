@@ -148,7 +148,7 @@ def analyze_patient(data: PatientInput):
                 "quality_of_sleep": data.quality_of_sleep,
                 "physical_activity": data.physical_activity,
                 "stress_level": data.stress_level,
-                "blood_pressure": data.blood_pressure,
+                "blood_pressure": data.blood_pressure_category,
                 "heart_rate": data.heart_rate,
                 "daily_steps": data.daily_steps,
                 "risk_score": analysis.risk_score,
